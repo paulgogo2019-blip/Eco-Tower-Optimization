@@ -16,14 +16,19 @@ demand_scale = st.sidebar.select_slider("Demand Multiplier (Peak Season)", optio
 @st.cache_data
 def load_data():
     nodes = pd.read_csv("data/network_nodes.csv")
+    
+    # FORCE STANDARDIZATION: This kills the 'Lat'/'Lon' error forever
+    rename_map = {
+        'Lat': 'y', 'lat': 'y', 'Latitude': 'y',
+        'Lon': 'x', 'lon': 'x', 'Longitude': 'x',
+        'q_j (Demand)': 'q_j', 'p_j (Urgency)': 'p_j'
+    }
+    nodes = nodes.rename(columns=rename_map)
+    
     fleet = pd.read_csv("data/fleet_config.csv")
     return nodes, fleet
 
 nodes_df, fleet_df = load_data()
-
-# Apply the Multiplier to your 52 nodes
-nodes_df['q_j_dynamic'] = nodes_df['q_j'] * demand_scale
-
 # --- 3. THE MATH: C(S) OPTIMIZATION LOGIC ---
 def calculate_dynamic_metrics(df, penalty, d_price):
     # Manhattan Distance Math: |x| + |y| from Depot (0,0)
