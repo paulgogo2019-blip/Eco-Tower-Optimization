@@ -28,5 +28,5 @@ $$min \sum (\text{Distance Cost}) + (\text{CO}_2 \text{ Emissions} \times \text{
 - `data/`: Contains `network_nodes.csv` (52-node GPS data) and `fleet_config.csv`.
 
 ---
-**Developer:** [Your Name]  
+**Developer:** [Paul Otieno Ogola]  
 **Background:** MS in Supply Chain Management, Washington University in St. Louis
