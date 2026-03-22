@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 st.set_page_config(page_title="Eco-Tower Optimizer", layout="wide")
 
 st.sidebar.title("🚛 Network Control Center")
-st.sidebar.markdown("Adjust parameters to see real-time impact on ROI and CO2.")
+st.sidebar.info("Adjust the Carbon Tax to see the 'Tipping Point' where EV becomes cheaper than Diesel.")
 
 # User Controls
 penalty = st.sidebar.slider("Carbon Tax ($ per kg CO2)", 0, 100, 25)
@@ -36,7 +36,9 @@ try:
     nodes_df['Cost_S'] = (nodes_df['dist_miles'] * 1.50) + (nodes_df['dist_miles'] * 0.05 * penalty)
     
     total_cost = nodes_df['Cost_S'].sum()
+    
     # Emission factor: ~0.411 kg CO2 per mile for medium-duty delivery truck
+    # If penalty > 50, we assume the fleet has transitioned to 100% EV (0 emissions)
     total_co2 = 0.0 if penalty > 50 else (nodes_df['dist_miles'].sum() * 0.411)
 
     # --- 4. DASHBOARD UI ---
@@ -49,36 +51,49 @@ try:
     m2.metric("Carbon Footprint", f"{total_co2:,.1f} kg CO2")
     m3.metric("Required Fleet Size", f"{int(12 * demand_scale)} Vehicles")
 
-    # --- 5. ROUTE MANIFEST (The "How-To" for Drivers) ---
+    # --- 5. ROUTE MANIFEST & DOWNLOAD ---
+    st.write("---")
     st.write("### 📝 Suggested Delivery Sequence")
-    st.write("To minimize costs, prioritize sites by proximity to the Hub and Urgency level.")
+    st.write("Priority is determined by **Urgency (1-5)** and **Proximity** to the Hub.")
     
-    # Create the manifest by sorting nodes by distance and urgency
+    # Create the manifest: Sort by Urgency (High to Low) then Distance (Short to Long)
     manifest = nodes_df[nodes_df['Type'] == 'Customer'].sort_values(by=['p_j', 'dist_miles'], ascending=[False, True])
     
-    st.dataframe(manifest[['Label', 'dist_miles', 'q_j_dynamic', 'p_j']].rename(
+    # Display Table
+    formatted_df = manifest[['Label', 'dist_miles', 'q_j_dynamic', 'p_j', 'Cost_S']].rename(
         columns={
             'Label': 'Node ID',
             'dist_miles': 'Miles from Hub',
             'q_j_dynamic': 'Current Demand',
-            'p_j': 'Urgency (1-5)'
+            'p_j': 'Urgency (1-5)',
+            'Cost_S': 'Individual Cost'
         }
-    ).head(15), use_container_width=True)
+    )
+    st.dataframe(formatted_df.head(15), use_container_width=True)
+
+    # DOWNLOAD BUTTON
+    csv = formatted_df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="📥 Download Full Route Manifest as CSV",
+        data=csv,
+        file_name='NYC_NJ_Optimized_Routes.csv',
+        mime='text/csv',
+    )
 
     # --- 6. GEOSPATIAL VISUALIZATION ---
+    st.write("---")
     st.write("### 📍 52-Node Optimized Network Map")
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    # Plot Customers (Color by Urgency, Size by Demand)
     cust = nodes_df[nodes_df['Type'] == 'Customer']
+    # Color by Urgency, Size by Demand
     scatter = ax.scatter(cust['x'], cust['y'], 
                          c=cust['p_j'], cmap='viridis', 
                          s=cust['q_j_dynamic']*30, alpha=0.6, label='Customers')
     
-    # Plot Depot
     ax.scatter(depot['x'], depot['y'], color='red', marker='s', s=250, label='Global Hub (Depot)')
     
-    # Draw Assignment Lines (Visualizing Radial Distance)
+    # Draw Radial Assignment Lines
     for _, row in cust.iterrows():
         ax.plot([depot['x'], row['x']], [depot['y'], row['y']], color='gray', linestyle='--', alpha=0.1, linewidth=0.5)
 
